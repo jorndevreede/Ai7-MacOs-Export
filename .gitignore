@@ -1,0 +1,6 @@
+dist/
+.DS_Store
+AI07-opnames/
+*.aac
+*.mp3
+export-log.json

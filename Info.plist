@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>AI07 Export</string>
+	<key>CFBundleExecutable</key>
+	<string>AI07Probe</string>
+	<key>CFBundleIdentifier</key>
+	<string>nl.local.ai07-probe</string>
+	<key>CFBundleName</key>
+	<string>AI07 Export</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Leest opnames van jouw AI07 en slaat ze lokaal als MP3 op.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Vindt je AI07-recorder voor lokale compatibiliteitscontrole.</string>
+</dict>
+</plist>
