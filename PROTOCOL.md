@@ -9,9 +9,9 @@ Uitgaand frame: CA AC, commando, payloadlengte, payload. Antwoord: AC CA, comman
 - 02 zonder payload: bestandslijst. Recordpayload: status 00, 14 ASCII-cijfers (identificatie), 4 bytes grootte big-endian, 4 bytes duur big-endian, 1 byte type. Einde: payload 02.
 - 08: 14 ASCII-cijfers plus vier nulbytes (offset). Startantwoord: 00 plus 4-byte grootte. Audio op D0D4. Einde: antwoordpayload 02. Exacte bytecontrole voor opslaan.
 
-Alleen bovenstaande lees-/downloadfuncties worden gebruikt. Geen firmwarewijziging, reset, verwijder- of opnamecommando’s.
+Alleen bovenstaande lees-/downloadfuncties worden gebruikt. Geen firmwarewijziging, reset- of opnamecommando’s. Versie 0.2 voegt expliciet bevestigde verwijdering toe: wire 0x0a, payload exact de 14 ASCII-cijfers van het bestands-ID. Het commando wordt niet blind herhaald; alleen afwezigheid in een verse complete lijst bevestigt verwijderen. De knop stuurt niets voordat de gebruiker bevestigt.
 
-Broncode: `AI07Export.m`.
+Broncode: `Sources/`.
 
 ## Referenties
 

@@ -3,20 +3,28 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>AI07 Export</string>
+	<string>Ai7 interface</string>
 	<key>CFBundleExecutable</key>
-	<string>AI07Probe</string>
+	<string>Ai7Interface</string>
+	<key>CFBundleIconFile</key>
+	<string>Recorder</string>
 	<key>CFBundleIdentifier</key>
-	<string>nl.local.ai07-probe</string>
+	<string>app.ai7.interface</string>
 	<key>CFBundleName</key>
-	<string>AI07 Export</string>
+	<string>Ai7 interface</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1</string>
+	<string>0.2.0</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Leest opnames van jouw AI07 en slaat ze lokaal als MP3 op.</string>
+	<string>Finds your Ai7 recorder and transfers selected recordings to a local folder.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Vindt je AI07-recorder voor lokale compatibiliteitscontrole.</string>
+	<string>Connects to your Ai7 voice recorder.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
 </dict>
 </plist>

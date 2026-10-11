@@ -1,6 +1,9 @@
 dist/
+build/
 .DS_Store
 AI07-opnames/
-*.aac
+Ai7-*/
 *.mp3
+*.aac
+!Tests/tone.aac
 export-log.json

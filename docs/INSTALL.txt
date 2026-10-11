@@ -1,0 +1,30 @@
+Ai7 interface 0.2.0
+
+1. Drag Ai7 interface into Applications.
+2. Open the app, and allow Bluetooth access when macOS asks.
+3. Choose a local folder. Notes, Calls and preserved Originals are grouped per recorder.
+4. Turn on the Ai7 and close MindRec on both phone and Mac.
+5. Click Scan, select the recorder, and click Connect.
+6. Check recordings and click Transfer selected, or click Transfer all new recordings.
+
+The new label means no final local files exist in this device's export folder.
+Local means the source size and both audio hashes have been verified.
+Local (unverified), incomplete or conflict are never overwritten automatically.
+
+Delete selected from Ai7 permanently deletes only the checked recordings after an explicit
+confirmation. The app checks a fresh recorder list after each deletion. Your local files
+are kept. Cancel is the default button. Transfer important files first.
+
+macOS 11 or newer. Universal build for Apple Silicon and Intel. The Intel slice is compiled
+but has not been tested on a physical Intel Mac. Tested recorder firmware: V1.0.0.
+There is no guaranteed compatibility with every recorder sold as Ai7 / AI07.
+
+This preview is ad-hoc signed, not Apple Developer ID signed or notarized. macOS may block
+an Internet-downloaded copy. Do not disable Gatekeeper or other security protections.
+For trusted distribution without this warning, the publisher must sign and notarize a
+future release with an Apple Developer account.
+
+No Homebrew or extra audio tools are required. FFmpeg and LAME are bundled; their licenses,
+corresponding source archives and rebuild recipe are in Third-party sources.
+
+GitHub project: https://github.com/jorndevreede/ai07-macos-export
