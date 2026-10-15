@@ -13,7 +13,8 @@ If the disk is not found, check the cable and choose the USB volume manually in 
 Notes, Calls and preserved Originals are grouped per recorder in your selected folder.
 The new label means no final local files exist. Local means hashes were verified.
 Unverified, incomplete or conflicting files are never overwritten automatically.
-Device deletion is not available in this USB workflow. Disconnect does not eject the disk.
+Delete selected asks for confirmation, safely ejects USB, then deletes via Bluetooth.
+Local files are kept. This deletion workflow still needs hardware validation. Disconnect does not eject the disk.
 The full automatic USB workflow still needs live hardware validation.
 
 macOS 11 or newer. Universal build for Apple Silicon and Intel. The Intel slice is compiled

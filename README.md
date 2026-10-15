@@ -14,7 +14,7 @@ A native macOS app for downloading recordings from compatible **Ai7 / AI07** voi
 
 Bluetooth is used for setup and the file list; all audio transfers use USB. There is no Bluetooth audio fallback. If automatic detection cannot find a unique matching disk, check the data cable and use **Settings → Choose USB volume manually…**. Transfer stays disabled until a matching source and destination are selected. Disconnect appears only while connected; it does not eject the USB disk.
 
-The app reads USB originals without modifying them. Device deletion is not exposed in this USB workflow. Do not record or unplug during transfer. The full automatic setup-to-transfer workflow still requires live hardware validation; see [validation](VALIDATION.md).
+The app reads USB originals without modifying them. **Delete selected…** asks for confirmation, warns about missing local backups, safely ejects USB storage, then deletes via Bluetooth and checks a fresh file list. Local copies are kept. This deletion workflow still needs hardware validation. Do not record or unplug during transfer. The full automatic setup-to-transfer workflow still requires live hardware validation; see [validation](VALIDATION.md).
 
 ## Local library
 

@@ -60,7 +60,7 @@
     for(int i=0;i<6;i++){NSTableColumn*c=[[NSTableColumn alloc]initWithIdentifier:ids[i]];c.title=titles[i];c.width=widths[i];c.minWidth=widths[i];[self.table addTableColumn:c];}scroll.documentView=self.table;[self.window.contentView addSubview:scroll];
     self.allButton=[self button:@"Select all" action:@selector(selectAllRecordings) frame:NSMakeRect(24,95,110,32)];
     self.noneButton=[self button:@"Select none" action:@selector(selectNone) frame:NSMakeRect(140,95,120,32)];
-    [self label:@"Select recordings to copy via USB." frame:NSMakeRect(280,99,310,24) font:[NSFont systemFontOfSize:12]].textColor=NSColor.secondaryLabelColor;
+    self.deleteButton=[self button:@"Delete selected…" action:@selector(confirmDelete) frame:NSMakeRect(280,95,175,32)];
     self.transferButton=[self button:@"Transfer selected" action:@selector(transferSelected) frame:NSMakeRect(598,93,170,37)];
     self.transferNewButton=[self button:@"Transfer all new recordings" action:@selector(transferNew) frame:NSMakeRect(778,93,255,37)];self.transferNewButton.bezelColor=NSColor.controlAccentColor;
     self.transferButton.autoresizingMask=NSViewMinXMargin;self.transferNewButton.autoresizingMask=NSViewMinXMargin;
@@ -76,6 +76,7 @@
     else self.central=[[CBCentralManager alloc]initWithDelegate:self queue:nil options:@{CBCentralManagerOptionShowPowerAlertKey:@YES}];
     [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer*t){
         if([self.phase isEqual:@"usb-wait"]){[self findUSBVolume];return;}
+        if(self.connected&&self.usbRequested&&!self.usbSource&&!self.busy)[self findUSBVolume];
         if(self.usbSource&&!self.busy&&![NSFileManager.defaultManager fileExistsAtPath:self.usbSource.path]){self.usbSource=nil;[self statusText:@"USB volume disconnected. Reconnect the cable and choose the USB volume in Settings."];[self updateControls];}
         if(self.busy&&!self.converting&&NSDate.timeIntervalSinceReferenceDate-self.activity>40)[self fail:@"The recorder stopped responding. Completed files are safe. Reconnect to refresh the list."];
     }];
@@ -102,7 +103,10 @@
 - (void)findUSBVolume {
     BOOL hasAudio=NO;for(AI7Recording*r in self.recordings)if(r.byteCount){hasAudio=YES;break;}
     if(!hasAudio){self.busy=NO;self.phase=@"idle";[self statusText:@"No recordings to transfer. USB mode requested."];[self updateControls];return;}
-    NSArray*volumes=[NSFileManager.defaultManager mountedVolumeURLsIncludingResourceValuesForKeys:@[NSURLVolumeIsInternalKey] options:0];
+    NSMutableArray*volumes=[[NSFileManager.defaultManager mountedVolumeURLsIncludingResourceValuesForKeys:@[NSURLVolumeIsInternalKey] options:0] mutableCopy]?:[NSMutableArray new];
+    // FSKit volumes can be absent from Foundation's mounted-volume enumeration.
+    NSArray*roots=[NSFileManager.defaultManager contentsOfDirectoryAtURL:[NSURL fileURLWithPath:@"/Volumes" isDirectory:YES] includingPropertiesForKeys:nil options:NSDirectoryEnumerationSkipsHiddenFiles error:nil];
+    for(NSURL*root in roots){BOOL seen=NO;for(NSURL*existing in volumes)if([existing.path isEqual:root.path]){seen=YES;break;}if(!seen)[volumes addObject:root];}
     NSMutableArray*matches=[NSMutableArray new];
     for(NSURL*root in volumes){NSNumber*internal=nil;[root getResourceValue:&internal forKey:NSURLVolumeIsInternalKey error:nil];if(internal.boolValue)continue;
         BOOL found=NO,match=YES;for(AI7Recording*r in self.recordings){if(!r.byteCount)continue;found=YES;if(![AI7USB matchesRecording:r root:root]){match=NO;break;}}
@@ -144,7 +148,7 @@
     for(AI7Recording*r in self.recordings){if(r.selected)selected++;if([r.localState isEqual:@"new"]){new++;if(r.selected)transferable++;}}
     self.transferButton.enabled=idle&&self.connected&&self.usbSource&&self.folder&&transferable>0;
     self.transferNewButton.enabled=idle&&self.connected&&self.usbSource&&self.folder&&new>0;
-    self.deleteButton.enabled=idle&&self.connected&&selected>0&&!self.usbSource;
+    self.deleteButton.enabled=idle&&self.connected&&selected>0&&!self.demo;
     self.stopButton.enabled=(self.busy||self.scanning)&&!self.converting;self.stopButton.hidden=!self.stopButton.enabled;
     if(self.connected)self.summary.stringValue=[NSString stringWithFormat:@"%lu recordings  ·  %lu new  ·  %lu selected%@",(unsigned long)self.recordings.count,(unsigned long)new,(unsigned long)selected,self.folder?(self.usbSource?@"  ·  USB":@"  ·  Waiting for USB"):@"  ·  Choose an export folder"];
     [self.table reloadData];
@@ -332,16 +336,28 @@
     });
 }
 - (void)confirmDelete {
-    if(self.busy||!self.connected||self.usbSource)return;NSMutableArray*chosen=[NSMutableArray new];for(AI7Recording*r in self.recordings)if(r.selected)[chosen addObject:r];if(!chosen.count)return;
+    if(self.busy||!self.connected)return;NSMutableArray*chosen=[NSMutableArray new];for(AI7Recording*r in self.recordings)if(r.selected)[chosen addObject:r];if(!chosen.count)return;
     for(AI7Recording*r in chosen){NSUInteger matches=0;for(AI7Recording*x in self.recordings)if([x.identifier isEqual:r.identifier])matches++;if(matches!=1){[self presentError:@"Ambiguous recording identifier" detail:@"This firmware lists more than one recording with the same ID. Deletion is disabled for these entries."];return;}}
     NSUInteger unbacked=0;NSMutableArray*names=[NSMutableArray new];for(AI7Recording*r in chosen){if(!self.store||![[self.store stateForRecording:r] isEqual:@"local"])unbacked++;[names addObject:[NSString stringWithFormat:@"%@ · %@",r.displayDate,r.category]];}
     NSAlert*a=[NSAlert new];a.alertStyle=NSAlertStyleCritical;a.messageText=[NSString stringWithFormat:@"Delete %lu recording%@ from the Ai7?",(unsigned long)chosen.count,chosen.count==1?@"":@"s"];
     NSString*list=[[names subarrayWithRange:NSMakeRange(0,MIN(names.count,8))] componentsJoinedByString:@"\n"];
-    a.informativeText=[NSString stringWithFormat:@"This permanently removes the selected recordings from the connected Ai7. This cannot be undone. Local files are kept.\n\n%@%@%@",list,names.count>8?@"\n…":@"",unbacked?[NSString stringWithFormat:@"\n\n%lu selected recordings have no verified local backup in this folder.",(unsigned long)unbacked]:@""];
+    a.informativeText=[NSString stringWithFormat:@"This permanently removes the selected recordings from the connected Ai7. This cannot be undone. Local files are kept. USB storage is safely ejected before deletion.\n\n%@%@%@",list,names.count>8?@"\n…":@"",unbacked?[NSString stringWithFormat:@"\n\n%lu selected recordings have no verified local backup in this folder.",(unsigned long)unbacked]:@""];
     [a addButtonWithTitle:@"Cancel"];NSButton*confirm=[a addButtonWithTitle:@"Delete permanently"];confirm.hasDestructiveAction=YES;confirm.keyEquivalent=@"";
     NSUInteger generation=self.generation;[a beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse response){if(response!=NSAlertSecondButtonReturn||!self.connected||self.busy||generation!=self.generation)return;
         if(self.demo){[self statusText:@"Demo mode: no recordings were deleted."];return;}
-        self.queue=[chosen mutableCopy];self.total=chosen.count;self.completed=0;self.busy=YES;[self updateControls];[self nextDelete];
+        self.queue=[chosen mutableCopy];self.total=chosen.count;self.completed=0;self.busy=YES;self.usbRequested=NO;self.phase=@"ejecting";self.activity=NSDate.timeIntervalSinceReferenceDate;[self updateControls];
+        NSURL*root=self.usbSource;
+        if(!root){
+            NSArray*roots=[NSFileManager.defaultManager contentsOfDirectoryAtURL:[NSURL fileURLWithPath:@"/Volumes" isDirectory:YES] includingPropertiesForKeys:nil options:NSDirectoryEnumerationSkipsHiddenFiles error:nil];
+            for(NSURL*candidate in roots){for(AI7Recording*r in chosen)if([AI7USB matchesRecording:r root:candidate]){if(root&&![root.path isEqual:candidate.path]){[self fail:@"Multiple matching USB volumes. Eject them in Finder before deleting."];return;}root=candidate;break;}}
+        }
+        if(root){[self statusText:@"Safely ejecting USB storage before deletion…"];
+            dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSError*error=nil;BOOL ejected=[NSWorkspace.sharedWorkspace unmountAndEjectDeviceAtURL:root error:&error];dispatch_async(dispatch_get_main_queue(),^{
+                if(generation!=self.generation)return;
+                if(!ejected){[self fail:[NSString stringWithFormat:@"Could not safely eject USB storage. Nothing was deleted. %@",error.localizedDescription?:@"Try ejecting in Finder."]];return;}
+                self.usbSource=nil;[self nextDelete];
+            });});
+        }else [self nextDelete];
     }];
 }
 - (void)nextDelete {

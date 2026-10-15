@@ -6,6 +6,8 @@
 - Universal application build and ad-hoc code-signature verification pass.
 - USB-first UI visually inspected: numbered steps, Settings and hidden disconnected controls.
 - Full automatic USB setup and new USB GUI transfer remains pending a successful live connection; no claim of complete end-to-end USB validation is made yet.
+- Live mounted NO NAME and two readable files confirmed on 15 October. The GUI showed USB after manual volume selection. Automatic detection now also checks /Volumes and retries after its initial timeout; this fix is not yet live-validated.
+- Deletion controls restored with safe USB ejection before BLE deletion. This new sequence is not hardware-validated; no recordings were deleted during testing.
 - WiFi remains research only. No hotspot switching or WiFi downloads are enabled in this release.
 
 # Validation — 11 October 2026
