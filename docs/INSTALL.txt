@@ -28,3 +28,8 @@ No Homebrew or extra audio tools are required. FFmpeg and LAME are bundled; thei
 corresponding source archives and rebuild recipe are in Third-party sources.
 
 GitHub project: https://github.com/jorndevreede/ai07-macos-export
+
+USB transfer: connect over Bluetooth, attach a data cable and click USB storage.
+Then choose Ai7 interface > Use USB recordings and select NO NAME.
+The ordinary transfer buttons now copy via USB and convert locally to MP3.
+Always eject NO NAME in Finder before unplugging.

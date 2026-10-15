@@ -19,3 +19,7 @@ Broncode: `Sources/`.
 - Vadiutor: https://play.google.com/store/apps/details?id=com.aifuture.vadiutor
 - Pocket Libre: https://github.com/shahcolate/pocket-libre
 - Meegeleverde handleiding en screenshots; live tests op deze Mac op 11 oktober 2026.
+
+## USB storage (verified 12 October 2026)
+
+Wire 0x15, one-byte payload 01 enables USB storage (`CA AC 15 01 01`). The recorder then mounted as NO NAME and exposed extensionless AAC files named Note/Call + recording identifier. Acknowledgement alone is not proof of a mounted volume. See docs/research/USB-WIFI.md for evidence and WiFi research.

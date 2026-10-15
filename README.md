@@ -12,6 +12,16 @@ A native macOS app for downloading recordings from compatible **Ai7 / AI07** voi
 
 **Delete selected from Ai7…** asks for explicit confirmation, warns when a verified backup is missing, and checks a fresh file list after each deletion. This permanently deletes recordings on the device; local copies are kept. Cancel is the default action. Nothing is deleted as part of transferring audio.
 
+## USB transfer (0.3.0)
+
+1. Attach a USB data cable, stop recording and connect over Bluetooth as above.
+2. Click **USB storage…** and confirm. The recorder should appear in Finder as **NO NAME**.
+3. In the **Ai7 interface** menu choose **Use USB recordings…**, then select that recorder volume.
+4. The summary shows **USB**. Use the same selected/all-new transfer buttons to produce local MP3s via the cable.
+5. Eject **NO NAME** in Finder before unplugging it.
+
+Bluetooth is still required once per session for recorder identity and the file list. USB selection checks filenames and sizes against that list. USB originals are read only; device deletion is disabled in USB transfer mode. Do not record while transferring. Choose **Use Bluetooth transfers** in the app menu to switch back; this does not eject the disk.
+
 ## Local library
 
 The selected folder contains a separate `Ai7-<device identifier>` directory per recorder:

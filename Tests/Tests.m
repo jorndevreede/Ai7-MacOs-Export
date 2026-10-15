@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import "AI7Protocol.h"
 #import "AI7Store.h"
+#import "AI7USB.h"
 static void check(BOOL pass,NSString *message){if(!pass){fprintf(stderr,"FAIL: %s\n",message.UTF8String);exit(1);}}
 static NSData* bytes(NSArray*values){NSMutableData*d=[NSMutableData new];for(NSNumber*n in values){uint8_t b=n.unsignedCharValue;[d appendBytes:&b length:1];}return d;}
 int main(){@autoreleasepool{
@@ -32,5 +33,18 @@ int main(){@autoreleasepool{
     check(![s publish:r staging:stage error:&e],@"never overwrite an existing recording");check([hash isEqual:[AI7Store hashFile:[s mp3URL:r]]],@"existing bytes preserved");
     [@"modified" writeToURL:[s mp3URL:r] atomically:YES encoding:NSUTF8StringEncoding error:&e];check([[s stateForRecording:r] isEqual:@"conflict"],@"detect local corruption");
     r.byteCount=7;check(![s publish:r staging:stage error:&e],@"reject incomplete download");r.byteCount=0;check([[s stateForRecording:r] isEqual:@"empty"],@"empty entry cannot transfer");
+    r.byteCount=6;r.kind=1;
+    NSURL*source=[AI7USB sourceForRecording:r root:root];
+    [@"abcdef" writeToURL:source atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    NSURL*copied=[root URLByAppendingPathComponent:@"usb-copy.aac"];[NSData.data writeToURL:copied atomically:YES];
+    check([AI7USB matchesRecording:r root:root],@"USB source matches BLE size and identifier");
+    check([AI7USB copyRecording:r root:root toEmptyFile:copied error:&e],@"USB complete copy");
+    check([[AI7Store hashFile:copied] isEqual:[AI7Store hashFile:source]],@"USB copy byte-for-byte identical");
+    check(![AI7USB copyRecording:r root:root toEmptyFile:copied error:&e],@"USB destination never overwritten");
+    r.byteCount=7;check(![AI7USB matchesRecording:r root:root],@"changed USB size rejected");r.byteCount=6;
+    [NSFileManager.defaultManager removeItemAtURL:source error:nil];
+    check(![AI7USB matchesRecording:r root:root],@"missing USB source rejected");
+    [NSFileManager.defaultManager createSymbolicLinkAtURL:source withDestinationURL:copied error:nil];
+    check(![AI7USB matchesRecording:r root:root],@"USB symlink rejected");
     [NSFileManager.defaultManager removeItemAtURL:root error:nil];puts("PASS: protocol validation, safe paths, identity, byte counts, hash verification and no-overwrite storage");
 }return 0;}
