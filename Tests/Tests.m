@@ -46,5 +46,5 @@ int main(){@autoreleasepool{
     check(![AI7USB matchesRecording:r root:root],@"missing USB source rejected");
     [NSFileManager.defaultManager createSymbolicLinkAtURL:source withDestinationURL:copied error:nil];
     check(![AI7USB matchesRecording:r root:root],@"USB symlink rejected");
-    [NSFileManager.defaultManager removeItemAtURL:root error:nil];puts("PASS: protocol validation, safe paths, identity, byte counts, hash verification and no-overwrite storage");
+    [NSFileManager.defaultManager removeItemAtURL:root error:nil];puts("PASS: protocol validation, safe paths, identity, byte counts, hash verification, no-overwrite storage and USB copy validation");
 }return 0;}

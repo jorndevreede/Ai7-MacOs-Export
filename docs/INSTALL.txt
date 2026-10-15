@@ -27,7 +27,7 @@ future release with an Apple Developer account.
 No Homebrew or extra audio tools are required. FFmpeg and LAME are bundled; their licenses,
 corresponding source archives and rebuild recipe are in Third-party sources.
 
-GitHub project: https://github.com/jorndevreede/ai07-macos-export
+GitHub project: https://github.com/jorndevreede/Ai7-MacOs-Export
 
 USB transfer: connect over Bluetooth, attach a data cable and click USB storage.
 Then choose Ai7 interface > Use USB recordings and select NO NAME.
