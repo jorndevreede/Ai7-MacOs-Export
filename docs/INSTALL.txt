@@ -1,19 +1,20 @@
-Ai7 interface 0.2.0
+Ai7 interface 0.4.0
 
 1. Drag Ai7 interface into Applications.
-2. Open the app, and allow Bluetooth access when macOS asks.
-3. Choose a local folder. Notes, Calls and preserved Originals are grouped per recorder.
-4. Turn on the Ai7 and close MindRec on both phone and Mac.
-5. Click Scan, select the recorder, and click Connect.
-6. Check recordings and click Transfer selected, or click Transfer all new recordings.
+2. Connect a USB data cable, turn on the recorder and stop recording.
+3. Close MindRec on phone and Mac. Open Ai7 interface and allow Bluetooth access.
+4. Scan, select your recorder and Connect. The app fetches its list and enables USB mode.
+5. Use Settings (gear icon) to choose your local destination folder.
+6. Once USB is ready, transfer selected recordings or all new recordings.
+7. Eject NO NAME in Finder before unplugging.
 
-The new label means no final local files exist in this device's export folder.
-Local means the source size and both audio hashes have been verified.
-Local (unverified), incomplete or conflict are never overwritten automatically.
-
-Delete selected from Ai7 permanently deletes only the checked recordings after an explicit
-confirmation. The app checks a fresh recorder list after each deletion. Your local files
-are kept. Cancel is the default button. Transfer important files first.
+All audio is copied through USB and converted locally to MP3. Bluetooth is used for setup.
+If the disk is not found, check the cable and choose the USB volume manually in Settings.
+Notes, Calls and preserved Originals are grouped per recorder in your selected folder.
+The new label means no final local files exist. Local means hashes were verified.
+Unverified, incomplete or conflicting files are never overwritten automatically.
+Device deletion is not available in this USB workflow. Disconnect does not eject the disk.
+The full automatic USB workflow still needs live hardware validation.
 
 macOS 11 or newer. Universal build for Apple Silicon and Intel. The Intel slice is compiled
 but has not been tested on a physical Intel Mac. Tested recorder firmware: V1.0.0.
@@ -28,8 +29,3 @@ No Homebrew or extra audio tools are required. FFmpeg and LAME are bundled; thei
 corresponding source archives and rebuild recipe are in Third-party sources.
 
 GitHub project: https://github.com/jorndevreede/Ai7-MacOs-Export
-
-USB transfer: connect over Bluetooth, attach a data cable and click USB storage.
-Then choose Ai7 interface > Use USB recordings and select NO NAME.
-The ordinary transfer buttons now copy via USB and convert locally to MP3.
-Always eject NO NAME in Finder before unplugging.

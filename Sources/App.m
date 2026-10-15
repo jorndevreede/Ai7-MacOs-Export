@@ -26,6 +26,8 @@
 @property NSTimeInterval activity;
 @property BOOL connected, scanning, busy, converting, cancelRequested, demo;
 @property NSTask *converter;
+@property BOOL usbRequested;
+@property NSButton *settingsButton;
 @end
 @implementation AI7App
 - (NSButton *)button:(NSString *)title action:(SEL)action frame:(NSRect)frame {
@@ -42,46 +44,73 @@
     NSImageView*icon=[[NSImageView alloc]initWithFrame:NSMakeRect(24,677,58,62)];icon.image=[NSImage imageNamed:@"Recorder"];icon.imageScaling=NSImageScaleProportionallyUpOrDown;icon.autoresizingMask=NSViewMinYMargin;[self.window.contentView addSubview:icon];
     NSTextField*title=[self label:@"Ai7 interface" frame:NSMakeRect(96,707,700,30) font:[NSFont boldSystemFontOfSize:25]];title.autoresizingMask=NSViewMinYMargin;
     self.subtitle=[self label:@"Your recordings. On your Mac." frame:NSMakeRect(97,679,830,24) font:[NSFont systemFontOfSize:14]];self.subtitle.textColor=NSColor.secondaryLabelColor;self.subtitle.autoresizingMask=NSViewMinYMargin;
-    self.folderLabel=[self label:@"Choose a local folder for Notes and Calls" frame:NSMakeRect(28,629,725,26) font:[NSFont systemFontOfSize:13]];
-    self.folderButton=[self button:@"Choose folder…" action:@selector(chooseFolder) frame:NSMakeRect(765,625,140,32)];
-    self.showButton=[self button:@"Show folder" action:@selector(showFolder) frame:NSMakeRect(916,625,118,32)];
-    self.scanButton=[self button:@"Scan" action:@selector(scan) frame:NSMakeRect(24,576,90,34)];
-    self.devicesMenu=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(122,577,475,32) pullsDown:NO];self.devicesMenu.target=self;self.devicesMenu.action=@selector(deviceSelectionChanged);[self.devicesMenu addItemWithTitle:@"No recorder found — click Scan"];[self.window.contentView addSubview:self.devicesMenu];
-    self.connectButton=[self button:@"Connect" action:@selector(connect) frame:NSMakeRect(608,576,110,34)];
-    self.disconnectButton=[self button:@"Disconnect" action:@selector(disconnect) frame:NSMakeRect(725,576,140,34)];
-    self.refreshButton=[self button:@"Refresh list" action:@selector(refresh) frame:NSMakeRect(876,576,158,34)];
-    self.summary=[self label:@"No recorder connected" frame:NSMakeRect(28,535,990,26) font:[NSFont boldSystemFontOfSize:13]];
-    NSScrollView*scroll=[[NSScrollView alloc]initWithFrame:NSMakeRect(28,186,1004,338)];scroll.borderType=NSBezelBorder;scroll.hasVerticalScroller=YES;scroll.autoresizingMask=NSViewWidthSizable|NSViewHeightSizable;
+    self.settingsButton=[self button:@"⚙" action:@selector(settings) frame:NSMakeRect(982,694,48,40)];self.settingsButton.autoresizingMask=NSViewMinXMargin|NSViewMinYMargin;[self.settingsButton setAccessibilityLabel:@"Settings"];
+    [self step:@"1" text:@"Connect via USB" x:28 y:610];
+    [self step:@"2" text:@"Identify recorder via Bluetooth" x:248 y:610];
+    self.scanButton=[self button:@"Scan" action:@selector(scan) frame:NSMakeRect(248,561,85,34)];
+    self.devicesMenu=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(343,562,340,32) pullsDown:NO];self.devicesMenu.target=self;self.devicesMenu.action=@selector(deviceSelectionChanged);[self.devicesMenu addItemWithTitle:@"No recorder found — click Scan"];[self.window.contentView addSubview:self.devicesMenu];
+    self.connectButton=[self button:@"Connect" action:@selector(connect) frame:NSMakeRect(693,561,100,34)];
+    self.disconnectButton=[self button:@"Disconnect" action:@selector(disconnect) frame:NSMakeRect(803,561,115,34)];
+    self.refreshButton=[self button:@"Refresh" action:@selector(refresh) frame:NSMakeRect(928,561,105,34)];
+    [self step:@"3" text:@"Copy recordings to your Mac" x:28 y:495];
+    self.summary=[self label:@"Connect your recorder to get started" frame:NSMakeRect(370,503,660,26) font:[NSFont boldSystemFontOfSize:13]];
+    NSScrollView*scroll=[[NSScrollView alloc]initWithFrame:NSMakeRect(28,145,1004,340)];scroll.borderType=NSBezelBorder;scroll.hasVerticalScroller=YES;scroll.autoresizingMask=NSViewWidthSizable|NSViewHeightSizable;
     self.table=[[NSTableView alloc]initWithFrame:scroll.bounds];self.table.delegate=self;self.table.dataSource=self;self.table.rowHeight=38;self.table.usesAlternatingRowBackgroundColors=YES;self.table.selectionHighlightStyle=NSTableViewSelectionHighlightStyleNone;self.table.target=self;self.table.action=@selector(rowClicked);self.table.columnAutoresizingStyle=NSTableViewLastColumnOnlyAutoresizingStyle;
     NSArray*ids=@[@"selected",@"date",@"kind",@"duration",@"size",@"state"];NSArray*titles=@[@"",@"Recording",@"Type",@"Duration",@"Size",@"Status"];CGFloat widths[]={38,275,110,115,130,200};
     for(int i=0;i<6;i++){NSTableColumn*c=[[NSTableColumn alloc]initWithIdentifier:ids[i]];c.title=titles[i];c.width=widths[i];c.minWidth=widths[i];[self.table addTableColumn:c];}scroll.documentView=self.table;[self.window.contentView addSubview:scroll];
-    self.allButton=[self button:@"Select all" action:@selector(selectAllRecordings) frame:NSMakeRect(24,139,115,32)];
-    self.noneButton=[self button:@"Select none" action:@selector(selectNone) frame:NSMakeRect(146,139,125,32)];
-    [self label:@"Click a recording or its checkbox to select it." frame:NSMakeRect(288,143,730,24) font:[NSFont systemFontOfSize:12]].textColor=NSColor.secondaryLabelColor;
-    self.transferButton=[self button:@"Transfer selected" action:@selector(transferSelected) frame:NSMakeRect(24,86,170,37)];
-    self.transferNewButton=[self button:@"Transfer all new recordings" action:@selector(transferNew) frame:NSMakeRect(203,86,255,37)];self.transferNewButton.keyEquivalent=@"";self.transferNewButton.bezelColor=NSColor.controlAccentColor;
-    NSButton*usbButton=[self button:@"USB storage…" action:@selector(enableUSBStorage) frame:NSMakeRect(575,86,185,37)];usbButton.toolTip=@"Enable USB storage using Bluetooth. Then choose Use USB recordings from the app menu.";
-    self.stopButton=[self button:@"Stop" action:@selector(stop) frame:NSMakeRect(470,86,92,37)];
-    self.deleteButton=[self button:@"Delete selected from Ai7…" action:@selector(confirmDelete) frame:NSMakeRect(775,86,260,37)];self.deleteButton.contentTintColor=NSColor.systemRedColor;
+    self.allButton=[self button:@"Select all" action:@selector(selectAllRecordings) frame:NSMakeRect(24,95,110,32)];
+    self.noneButton=[self button:@"Select none" action:@selector(selectNone) frame:NSMakeRect(140,95,120,32)];
+    [self label:@"Select recordings to copy via USB." frame:NSMakeRect(280,99,310,24) font:[NSFont systemFontOfSize:12]].textColor=NSColor.secondaryLabelColor;
+    self.transferButton=[self button:@"Transfer selected" action:@selector(transferSelected) frame:NSMakeRect(598,93,170,37)];
+    self.transferNewButton=[self button:@"Transfer all new recordings" action:@selector(transferNew) frame:NSMakeRect(778,93,255,37)];self.transferNewButton.bezelColor=NSColor.controlAccentColor;
+    self.transferButton.autoresizingMask=NSViewMinXMargin;self.transferNewButton.autoresizingMask=NSViewMinXMargin;
+    self.stopButton=[self button:@"Stop" action:@selector(stop) frame:NSMakeRect(935,13,100,32)];self.stopButton.autoresizingMask=NSViewMinXMargin;
     self.progress=[[NSProgressIndicator alloc]initWithFrame:NSMakeRect(28,59,1004,8)];self.progress.indeterminate=NO;self.progress.maxValue=100;self.progress.autoresizingMask=NSViewWidthSizable;[self.window.contentView addSubview:self.progress];
-    self.status=[self label:@"Turn on your recorder and close MindRec before connecting." frame:NSMakeRect(28,18,1004,28) font:[NSFont systemFontOfSize:12]];self.status.autoresizingMask=NSViewWidthSizable;
-    for(NSView*v in @[self.folderLabel,self.folderButton,self.showButton,self.scanButton,self.devicesMenu,self.connectButton,self.disconnectButton,self.refreshButton,self.summary])v.autoresizingMask=NSViewMinYMargin;
-    self.folderLabel.autoresizingMask|=NSViewWidthSizable;self.folderButton.autoresizingMask|=NSViewMinXMargin;self.showButton.autoresizingMask|=NSViewMinXMargin;
-    self.deleteButton.autoresizingMask=NSViewMinXMargin;
-    NSMenu*menu=[NSMenu new];NSMenuItem*root=[NSMenuItem new];[menu addItem:root];NSMenu*appMenu=[NSMenu new];[appMenu addItemWithTitle:@"About Ai7 interface" action:@selector(about) keyEquivalent:@""];[appMenu addItemWithTitle:@"Use USB recordings…" action:@selector(chooseUSBSource) keyEquivalent:@""];[appMenu addItemWithTitle:@"Use Bluetooth transfers" action:@selector(useBluetooth) keyEquivalent:@""];[appMenu addItemWithTitle:@"Enable USB storage…" action:@selector(enableUSBStorage) keyEquivalent:@""];[appMenu addItem:NSMenuItem.separatorItem];[appMenu addItemWithTitle:@"Quit Ai7 interface" action:@selector(terminate:) keyEquivalent:@"q"];root.submenu=appMenu;NSApp.mainMenu=menu;
+    self.status=[self label:@"Connect the USB cable, turn on the recorder, then Scan and Connect." frame:NSMakeRect(28,18,890,28) font:[NSFont systemFontOfSize:12]];self.status.autoresizingMask=NSViewWidthSizable;
+    for(NSView*v in @[self.scanButton,self.devicesMenu,self.connectButton,self.disconnectButton,self.refreshButton,self.summary])v.autoresizingMask=NSViewMinYMargin;
+    NSMenu*menu=[NSMenu new];NSMenuItem*root=[NSMenuItem new];[menu addItem:root];NSMenu*appMenu=[NSMenu new];[appMenu addItemWithTitle:@"About Ai7 interface" action:@selector(about) keyEquivalent:@""];[appMenu addItemWithTitle:@"Settings…" action:@selector(settings) keyEquivalent:@","];[appMenu addItemWithTitle:@"Choose USB volume manually…" action:@selector(chooseUSBSource) keyEquivalent:@""];[appMenu addItem:NSMenuItem.separatorItem];[appMenu addItemWithTitle:@"Quit Ai7 interface" action:@selector(terminate:) keyEquivalent:@"q"];root.submenu=appMenu;NSApp.mainMenu=menu;
     NSData*bookmark=[NSUserDefaults.standardUserDefaults dataForKey:@"destinationBookmark"];
     if(bookmark){BOOL stale=NO;NSURL*u=[NSURL URLByResolvingBookmarkData:bookmark options:NSURLBookmarkResolutionWithoutUI relativeToURL:nil bookmarkDataIsStale:&stale error:nil];if(u.isFileURL){self.folder=u;[self updateFolderLabel];}}
     [self.window makeKeyAndOrderFront:nil];[NSApp activateIgnoringOtherApps:YES];[self updateControls];
     if(self.demo){self.subtitle.stringValue=@"Demo mode — no physical recorder commands are sent.";[self scan];}
     else self.central=[[CBCentralManager alloc]initWithDelegate:self queue:nil options:@{CBCentralManagerOptionShowPowerAlertKey:@YES}];
     [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer*t){
+        if([self.phase isEqual:@"usb-wait"]){[self findUSBVolume];return;}
+        if(self.usbSource&&!self.busy&&![NSFileManager.defaultManager fileExistsAtPath:self.usbSource.path]){self.usbSource=nil;[self statusText:@"USB volume disconnected. Reconnect the cable and choose the USB volume in Settings."];[self updateControls];}
         if(self.busy&&!self.converting&&NSDate.timeIntervalSinceReferenceDate-self.activity>40)[self fail:@"The recorder stopped responding. Completed files are safe. Reconnect to refresh the list."];
     }];
 }
-- (void)useBluetooth {
-    if(self.busy||self.scanning)return;self.usbSource=nil;
-    [self statusText:@"Bluetooth transfers selected. Eject any mounted USB disk before unplugging the recorder."];
-    [self updateControls];
+- (void)step:(NSString *)number text:(NSString *)text x:(CGFloat)x y:(CGFloat)y {
+    NSTextField*badge=[self label:number frame:NSMakeRect(x,y,36,36) font:[NSFont boldSystemFontOfSize:26]];badge.alignment=NSTextAlignmentCenter;badge.textColor=NSColor.systemGreenColor;badge.autoresizingMask=NSViewMinYMargin;
+    NSTextField*caption=[self label:text frame:NSMakeRect(x+44,y+4,300,28) font:[NSFont systemFontOfSize:14 weight:NSFontWeightMedium]];caption.autoresizingMask=NSViewMinYMargin;
+}
+- (void)settings {
+    if(self.busy||self.scanning)return;NSMenu*m=[NSMenu new];
+    NSMenuItem*path=[m addItemWithTitle:self.folder.path?:@"No destination selected" action:nil keyEquivalent:@""];path.enabled=NO;
+    [m addItemWithTitle:@"Choose destination folder…" action:@selector(chooseFolder) keyEquivalent:@""].target=self;
+    [m addItemWithTitle:@"Show destination folder" action:@selector(showFolder) keyEquivalent:@""].target=self;
+    [m addItem:NSMenuItem.separatorItem];
+    [m addItemWithTitle:@"Choose USB volume manually…" action:@selector(chooseUSBSource) keyEquivalent:@""].target=self;
+    [m popUpMenuPositioningItem:nil atLocation:NSMakePoint(0,0) inView:self.settingsButton];
+}
+- (void)prepareUSB {
+    if(!self.connected||self.usbRequested||self.demo)return;
+    self.usbRequested=YES;self.busy=YES;self.phase=@"usb-wait";self.activity=NSDate.timeIntervalSinceReferenceDate;
+    [self statusText:@"Enabling USB storage and waiting for the recorder disk…"];[self updateControls];
+    uint8_t enabled=1;[self send:[AI7Protocol command:0x15 payload:[NSData dataWithBytes:&enabled length:1]]];
+}
+- (void)findUSBVolume {
+    BOOL hasAudio=NO;for(AI7Recording*r in self.recordings)if(r.byteCount){hasAudio=YES;break;}
+    if(!hasAudio){self.busy=NO;self.phase=@"idle";[self statusText:@"No recordings to transfer. USB mode requested."];[self updateControls];return;}
+    NSArray*volumes=[NSFileManager.defaultManager mountedVolumeURLsIncludingResourceValuesForKeys:@[NSURLVolumeIsInternalKey] options:0];
+    NSMutableArray*matches=[NSMutableArray new];
+    for(NSURL*root in volumes){NSNumber*internal=nil;[root getResourceValue:&internal forKey:NSURLVolumeIsInternalKey error:nil];if(internal.boolValue)continue;
+        BOOL found=NO,match=YES;for(AI7Recording*r in self.recordings){if(!r.byteCount)continue;found=YES;if(![AI7USB matchesRecording:r root:root]){match=NO;break;}}
+        if(found&&match)[matches addObject:root];
+    }
+    if(matches.count==1){self.usbSource=matches[0];self.busy=NO;self.phase=@"idle";[self statusText:self.folder?@"Ready. All recordings will transfer via USB.":@"USB ready. Choose your destination folder in Settings (⚙)." ];[self updateControls];return;}
+    if(matches.count>1||NSDate.timeIntervalSinceReferenceDate-self.activity>25){self.busy=NO;self.phase=@"idle";
+        [self statusText:matches.count>1?@"Multiple matching disks found. Choose the recorder volume in Settings.":@"USB disk not found. Check the data cable, then choose the USB volume in Settings. No Bluetooth audio transfer will be used."];[self updateControls];}
 }
 - (void)chooseUSBSource {
     if(self.busy||self.scanning)return;
@@ -96,23 +125,8 @@
         if(!found)return;self.usbSource=p.URL;[self statusText:@"USB transfers selected. Transfer buttons now read USB files and save verified MP3s. Do not record or unplug during transfer."];[self updateControls];
     }];
 }
-- (void)enableUSBStorage {
-    if(!self.connected||self.busy||self.scanning){[self presentError:@"Connect first" detail:@"Scan and connect to your Ai7, then enable USB storage while no transfer is running."];return;}
-    NSAlert*a=[NSAlert new];a.messageText=@"Enable USB storage on the Ai7?";
-    a.informativeText=@"Connect a USB data cable and stop recording first. This sends the same USB-enable setting as MindRec. Eject the recorder in Finder before unplugging it. This experimental option does not format or erase recordings.";
-    [a addButtonWithTitle:@"Cancel"];[a addButtonWithTitle:@"Enable USB storage"];
-    NSUInteger generation=self.generation;
-    [a beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse response){
-        if(response!=NSAlertSecondButtonReturn||!self.connected||self.busy||generation!=self.generation)return;
-        if(self.demo){[self statusText:@"Demo mode: USB setting was not sent."];return;}
-        uint8_t enabled=1;
-        self.busy=YES;self.phase=@"usb-enable";self.activity=NSDate.timeIntervalSinceReferenceDate;
-        [self updateControls];[self statusText:@"Requesting USB storage mode…"];
-        [self send:[AI7Protocol command:0x15 payload:[NSData dataWithBytes:&enabled length:1]]];
-    }];
-}
 - (void)about {
-    NSAlert*a=[NSAlert new];a.messageText=@"Ai7 interface 0.3.0";a.informativeText=@"Local Bluetooth transfers for compatible Ai7 / AI07 recorders. Audio stays on your Mac. Includes FFmpeg and LAME (LGPL); sources and notices are included in the disk image. Tested with firmware V1.0.0.";[a runModal];
+    NSAlert*a=[NSAlert new];a.messageText=@"Ai7 interface 0.4.0";a.informativeText=@"Local USB transfers with Bluetooth setup for compatible Ai7 / AI07 recorders. Audio stays on your Mac. Includes FFmpeg and LAME (LGPL); sources and notices are included in the disk image. Tested with firmware V1.0.0.";[a runModal];
 }
 - (void)statusText:(NSString *)s {self.status.stringValue=s;self.status.toolTip=s;}
 - (void)updateFolderLabel {self.folderLabel.stringValue=self.folder.path?:@"Choose a local folder for Notes and Calls";self.folderLabel.toolTip=self.folder.path;}
@@ -122,17 +136,17 @@
     self.scanButton.enabled=idle&&!self.connected;
     self.devicesMenu.enabled=idle&&!self.connected&&self.devices.count>0;
     self.connectButton.enabled=idle&&!self.connected&&self.devices.count>0;
-    self.disconnectButton.enabled=idle&&self.connected;
+    self.disconnectButton.enabled=idle&&self.connected;self.disconnectButton.hidden=!self.connected;self.refreshButton.hidden=!self.connected;self.settingsButton.enabled=idle;
     self.folderButton.enabled=idle;self.showButton.enabled=self.folder!=nil;
     self.refreshButton.enabled=idle&&self.connected;
     self.allButton.enabled=idle&&self.recordings.count>0;self.noneButton.enabled=self.allButton.enabled;
     NSUInteger selected=0,new=0,transferable=0;
     for(AI7Recording*r in self.recordings){if(r.selected)selected++;if([r.localState isEqual:@"new"]){new++;if(r.selected)transferable++;}}
-    self.transferButton.enabled=idle&&self.connected&&self.folder&&transferable>0;
-    self.transferNewButton.enabled=idle&&self.connected&&self.folder&&new>0;
+    self.transferButton.enabled=idle&&self.connected&&self.usbSource&&self.folder&&transferable>0;
+    self.transferNewButton.enabled=idle&&self.connected&&self.usbSource&&self.folder&&new>0;
     self.deleteButton.enabled=idle&&self.connected&&selected>0&&!self.usbSource;
-    self.stopButton.enabled=(self.busy||self.scanning)&&!self.converting;
-    if(self.connected)self.summary.stringValue=[NSString stringWithFormat:@"%lu recordings  ·  %lu new  ·  %lu selected%@",(unsigned long)self.recordings.count,(unsigned long)new,(unsigned long)selected,self.folder?(self.usbSource?@"  ·  USB":@"  ·  Bluetooth"):@"  ·  Choose an export folder"];
+    self.stopButton.enabled=(self.busy||self.scanning)&&!self.converting;self.stopButton.hidden=!self.stopButton.enabled;
+    if(self.connected)self.summary.stringValue=[NSString stringWithFormat:@"%lu recordings  ·  %lu new  ·  %lu selected%@",(unsigned long)self.recordings.count,(unsigned long)new,(unsigned long)selected,self.folder?(self.usbSource?@"  ·  USB":@"  ·  Waiting for USB"):@"  ·  Choose an export folder"];
     [self.table reloadData];
 }
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)v {return self.recordings.count;}
@@ -161,11 +175,11 @@
 }
 - (void)showFolder {if(self.folder){NSURL*u=self.store.deviceRoot;if(!u||![NSFileManager.defaultManager fileExistsAtPath:u.path])u=self.folder;[NSWorkspace.sharedWorkspace openURL:u];}}
 - (void)checkLocalFiles {
-    if(!self.folder||!self.deviceID){self.busy=NO;self.converting=NO;self.phase=@"idle";for(AI7Recording*r in self.recordings)r.localState=r.byteCount?@"choose folder":@"empty";[self statusText:self.connected?@"Connected. Choose a local folder to check for new recordings.":@"Folder selected. Scan and connect to a recorder."];[self updateControls];return;}
+    if(!self.folder||!self.deviceID){self.busy=NO;self.converting=NO;self.phase=@"idle";for(AI7Recording*r in self.recordings)r.localState=r.byteCount?@"choose folder":@"empty";[self statusText:self.connected?@"Connected. Choose a local folder to check for new recordings.":@"Folder selected. Scan and connect to a recorder."];[self updateControls];[self prepareUSB];return;}
     self.store=[[AI7Store alloc]initWithRoot:self.folder device:self.deviceID];self.busy=YES;self.converting=YES;[self statusText:@"Checking local recordings…"];[self updateControls];
     NSArray*rows=[self.recordings copy];AI7Store*store=self.store;NSUInteger generation=self.generation;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{NSMutableArray*states=[NSMutableArray new];for(AI7Recording*r in rows)[states addObject:[store stateForRecording:r]];
-        dispatch_async(dispatch_get_main_queue(),^{if(generation!=self.generation)return;for(NSUInteger i=0;i<rows.count;i++)((AI7Recording*)rows[i]).localState=states[i];self.converting=NO;self.busy=NO;self.phase=@"idle";[self statusText:@"Ready. New recordings are not yet in the selected folder."];[self updateControls];});
+        dispatch_async(dispatch_get_main_queue(),^{if(generation!=self.generation)return;for(NSUInteger i=0;i<rows.count;i++)((AI7Recording*)rows[i]).localState=states[i];self.converting=NO;self.busy=NO;self.phase=@"idle";[self statusText:self.usbSource?@"Ready. All recordings will transfer via USB.":@"Waiting for USB storage."];[self updateControls];[self prepareUSB];});
     });
 }
 - (void)deviceSelectionChanged {[self updateControls];}
@@ -198,7 +212,7 @@
 }
 - (void)connect {
     if(self.busy||self.scanning||!self.devices.count)return;NSInteger idx=self.devicesMenu.indexOfSelectedItem;if(idx<0||(NSUInteger)idx>=self.devices.count)return;
-    NSDictionary*d=self.devices[idx];self.usbSource=nil;self.deviceID=d[@"id"];self.device=d[@"peripheral"];self.writer=nil;self.subscribed=[NSMutableSet new];self.busy=YES;self.phase=@"connecting";self.activity=NSDate.timeIntervalSinceReferenceDate;self.generation++;[self.recordings removeAllObjects];[self updateControls];[self statusText:@"Connecting and checking recorder compatibility…"];
+    NSDictionary*d=self.devices[idx];self.usbRequested=NO;self.usbSource=nil;self.deviceID=d[@"id"];self.device=d[@"peripheral"];self.writer=nil;self.subscribed=[NSMutableSet new];self.busy=YES;self.phase=@"connecting";self.activity=NSDate.timeIntervalSinceReferenceDate;self.generation++;[self.recordings removeAllObjects];[self updateControls];[self statusText:@"Connecting and checking recorder compatibility…"];
     if(self.demo){self.connected=YES;[self refresh];return;}
     self.device.delegate=self;[self.central connectPeripheral:self.device options:nil];
 }
@@ -240,11 +254,7 @@
         [self statusText:[NSString stringWithFormat:@"Transferring %lu of %lu · %@ · %.0f%%",(unsigned long)self.completed+1,(unsigned long)self.total,self.current.displayDate,self.progress.doubleValue]];return;
     }
     if(![c.UUID.UUIDString isEqual:@"D0D3"])return;NSDictionary*response=[AI7Protocol response:d];if(!response)return;uint8_t command=[response[@"command"] unsignedCharValue];NSData*payload=response[@"payload"];const uint8_t*b=payload.bytes;
-    if(command==0x15&&[self.phase isEqual:@"usb-enable"]){
-        self.busy=NO;self.phase=@"idle";[self updateControls];
-        [self statusText:@"USB setting response received. Check Finder for the recorder; reconnect the cable if necessary."];
-        return;
-    }
+    if(command==0x15&&[self.phase isEqual:@"usb-wait"]){[self findUSBVolume];return;}
     if(command==2&&([self.phase isEqual:@"listing"]||[self.phase isEqual:@"verify-delete"])){self.activity=NSDate.timeIntervalSinceReferenceDate;
         if(payload.length==24){AI7Recording*r=[AI7Protocol recordingFromPayload:payload];if(!r){[self fail:@"Unsupported recording entry. No files were changed."];return;}for(AI7Recording*existing in self.incoming)if([existing.key isEqual:r.key]){[self fail:@"Duplicate recording identifiers received. Reconnect before continuing."];return;}[self.incoming addObject:r];}
         else if(payload.length==1&&b[0]==2)[self finishList];
@@ -275,7 +285,7 @@
 - (void)transferSelected {NSMutableArray*a=[NSMutableArray new];for(AI7Recording*r in self.recordings)if(r.selected&&[r.localState isEqual:@"new"])[a addObject:r];[self startTransfer:a];}
 - (void)transferNew {NSMutableArray*a=[NSMutableArray new];for(AI7Recording*r in self.recordings)if([r.localState isEqual:@"new"])[a addObject:r];[self startTransfer:a];}
 - (void)startTransfer:(NSArray *)recordings {
-    if(self.busy||!self.connected||!self.folder||!recordings.count)return;
+    if(self.busy||!self.connected||!self.folder||!self.usbSource||!recordings.count)return;
     if(self.demo){[self statusText:@"Demo mode: transfer disabled. Connect a physical recorder to export audio."];return;}
     self.queue=[recordings mutableCopy];self.total=recordings.count;self.completed=0;self.busy=YES;self.cancelRequested=NO;self.generation++;[self updateControls];[self nextDownload];
 }
@@ -300,7 +310,7 @@
             });
         });return;
     }
-    self.received=0;self.phase=@"download";self.activity=NSDate.timeIntervalSinceReferenceDate;self.progress.doubleValue=0;[self send:[AI7Protocol download:self.current.identifier]];
+    [self fail:@"USB storage is not available. Reconnect the disk before transferring."];
 }
 - (BOOL)runConverter:(NSArray *)arguments log:(NSURL *)log error:(NSError **)error {
     NSString*path=[NSBundle.mainBundle pathForResource:@"ffmpeg" ofType:nil inDirectory:@"Tools"];

@@ -1,10 +1,11 @@
-# Version 0.3.0 — 15 October 2026
+# Version 0.4.0 — 15 October 2026
 
 - USB enable was hardware-confirmed on 12 October: NO NAME mounted and six extensionless AAC recordings were readable.
 - USB source validation and copy tests pass: exact filenames/lengths, byte-identical copy, missing/changed sources, symlink refusal and no destination overwrite.
 - Existing protocol/storage tests and bundled synthetic AAC-to-MP3 encode/decode tests pass.
 - Universal application build and ad-hoc code-signature verification pass.
-- Full new USB GUI transfer remains pending a successful live connection; no claim of complete end-to-end USB validation is made yet.
+- USB-first UI visually inspected: numbered steps, Settings and hidden disconnected controls.
+- Full automatic USB setup and new USB GUI transfer remains pending a successful live connection; no claim of complete end-to-end USB validation is made yet.
 - WiFi remains research only. No hotspot switching or WiFi downloads are enabled in this release.
 
 # Validation — 11 October 2026

@@ -2,25 +2,19 @@
 
 A native macOS app for downloading recordings from compatible **Ai7 / AI07** voice recorders to local MP3 files. No MindRec account, cloud service, Homebrew or terminal commands are needed to use the packaged app.
 
-## Use
+## Use (0.4.0)
 
 1. Install the app from the DMG by dragging it to Applications.
-2. Choose a local destination folder. The app remembers it between launches.
-3. Turn on the recorder and close MindRec on your phone and Mac.
-4. Click **Scan**, choose the recorder, then **Connect**.
-5. Use the checkboxes, **Select all** or **Select none**. Click **Transfer selected**, or **Transfer all new recordings**.
+2. Attach a USB data cable, turn on the recorder, stop recording and close MindRec on your phone and Mac.
+3. Click **Scan**, choose the recorder, then **Connect**. Allow macOS Bluetooth access if asked.
+4. The app identifies the recorder, fetches its file list and automatically requests USB storage mode. It matches the mounted disk using recording filenames and sizes.
+5. Under **Settings (⚙)** choose a local destination folder. The app remembers it.
+6. When the summary shows **USB**, use **Select all**, **Select none**, **Transfer selected**, or **Transfer all new recordings**.
+7. Eject **NO NAME** in Finder before unplugging the recorder.
 
-**Delete selected from Ai7…** asks for explicit confirmation, warns when a verified backup is missing, and checks a fresh file list after each deletion. This permanently deletes recordings on the device; local copies are kept. Cancel is the default action. Nothing is deleted as part of transferring audio.
+Bluetooth is used for setup and the file list; all audio transfers use USB. There is no Bluetooth audio fallback. If automatic detection cannot find a unique matching disk, check the data cable and use **Settings → Choose USB volume manually…**. Transfer stays disabled until a matching source and destination are selected. Disconnect appears only while connected; it does not eject the USB disk.
 
-## USB transfer (0.3.0)
-
-1. Attach a USB data cable, stop recording and connect over Bluetooth as above.
-2. Click **USB storage…** and confirm. The recorder should appear in Finder as **NO NAME**.
-3. In the **Ai7 interface** menu choose **Use USB recordings…**, then select that recorder volume.
-4. The summary shows **USB**. Use the same selected/all-new transfer buttons to produce local MP3s via the cable.
-5. Eject **NO NAME** in Finder before unplugging it.
-
-Bluetooth is still required once per session for recorder identity and the file list. USB selection checks filenames and sizes against that list. USB originals are read only; device deletion is disabled in USB transfer mode. Do not record while transferring. Choose **Use Bluetooth transfers** in the app menu to switch back; this does not eject the disk.
+The app reads USB originals without modifying them. Device deletion is not exposed in this USB workflow. Do not record or unplug during transfer. The full automatic setup-to-transfer workflow still requires live hardware validation; see [validation](VALIDATION.md).
 
 ## Local library
 
