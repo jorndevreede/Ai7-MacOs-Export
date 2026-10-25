@@ -23,10 +23,10 @@ The selected folder contains a separate `Ai7-<device identifier>` directory per 
 - `Notes/`: MP3 notes.
 - `Calls/`: MP3 calls.
 - `Originals/Notes/` and `Originals/Calls/`: untouched AAC sources.
-- `.receipts/`: per-recording hashes and source byte count.
+- `.receipts/`: per-recording receipt (hashes and source byte count) and an optional `*.fingerprint.json` cache. The cache records size, modification time and file ID so a later connection can skip reading the audio again. Delete confirmation always recomputes SHA-256. Receipt JSON is unchanged.
 - `.incomplete/`: unfinished transfers or failed conversions, retained for recovery.
 
-The app labels absent files **new** and hash-verified files **local**. **local (unverified)**, **incomplete** and **conflict** entries are not overwritten. These statuses are based on this app's destination layout, not a search through arbitrary audio files elsewhere on disk. Empty recorder entries are displayed but cannot be transferred.
+The app labels absent files **new** and hash-verified files **local**. **local (unverified)**, **incomplete** and **conflict** entries are not overwritten. A row stays **checking** only while a changed or uncached file is hashed in the background; that row is not offered as a new transfer. These statuses are based on this app's destination layout, not a search through arbitrary audio files elsewhere on disk. Empty recorder entries are displayed but cannot be transferred.
 
 ## Compatibility and distribution
 
@@ -54,4 +54,4 @@ To rebuild the bundled audio tool from the included source archives:
 bash scripts/build-media.sh
 ```
 
-The native sources are in `Sources/`; tests cover framing, malformed inputs, source lengths, independent device paths, corruption detection and no-overwrite behavior, plus synthetic audio conversion. `Assets/` contains the generated recorder icon and its source/provenance. `--demo` runs the UI without Bluetooth commands; transfer and deletion are disabled in demo mode.
+The native sources are in `Sources/`; tests cover framing, malformed inputs, source lengths, independent device paths, corruption detection, no-overwrite behavior and the fingerprint cache, plus synthetic audio conversion. `Assets/` contains the generated recorder icon and its source/provenance. `--demo` runs the UI without Bluetooth commands; transfer and deletion are disabled in demo mode.

@@ -22,7 +22,7 @@
 @property AI7Store *store;
 @property AI7Recording *current;
 @property NSFileHandle *audioFile;
-@property NSUInteger received, completed, total, generation;
+@property NSUInteger received, completed, total, generation, fileCheckSerial;
 @property NSTimeInterval activity;
 @property BOOL connected, scanning, busy, converting, cancelRequested, demo;
 @property NSTask *converter;
@@ -78,7 +78,7 @@
         if([self.phase isEqual:@"usb-wait"]){[self findUSBVolume];return;}
         if(self.connected&&self.usbRequested&&!self.usbSource&&!self.busy)[self findUSBVolume];
         if(self.usbSource&&!self.busy&&![NSFileManager.defaultManager fileExistsAtPath:self.usbSource.path]){self.usbSource=nil;[self statusText:@"USB volume disconnected. Reconnect the cable and choose the USB volume in Settings."];[self updateControls];}
-        if(self.busy&&!self.converting&&NSDate.timeIntervalSinceReferenceDate-self.activity>40)[self fail:@"The recorder stopped responding. Completed files are safe. Reconnect to refresh the list."];
+        if(self.busy&&!self.converting&&![self.phase isEqual:@"verify-local"]&&![self.phase isEqual:@"classify"]&&NSDate.timeIntervalSinceReferenceDate-self.activity>40)[self fail:@"The recorder stopped responding. Completed files are safe. Reconnect to refresh the list."];
     }];
 }
 - (void)step:(NSString *)number text:(NSString *)text x:(CGFloat)x y:(CGFloat)y {
@@ -179,11 +179,41 @@
 }
 - (void)showFolder {if(self.folder){NSURL*u=self.store.deviceRoot;if(!u||![NSFileManager.defaultManager fileExistsAtPath:u.path])u=self.folder;[NSWorkspace.sharedWorkspace openURL:u];}}
 - (void)checkLocalFiles {
+    NSUInteger serial=++self.fileCheckSerial;NSUInteger generation=self.generation;
     if(!self.folder||!self.deviceID){self.busy=NO;self.converting=NO;self.phase=@"idle";for(AI7Recording*r in self.recordings)r.localState=r.byteCount?@"choose folder":@"empty";[self statusText:self.connected?@"Connected. Choose a local folder to check for new recordings.":@"Folder selected. Scan and connect to a recorder."];[self updateControls];[self prepareUSB];return;}
-    self.store=[[AI7Store alloc]initWithRoot:self.folder device:self.deviceID];self.busy=YES;self.converting=YES;[self statusText:@"Checking local recordings…"];[self updateControls];
-    NSArray*rows=[self.recordings copy];AI7Store*store=self.store;NSUInteger generation=self.generation;
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{NSMutableArray*states=[NSMutableArray new];for(AI7Recording*r in rows)[states addObject:[store stateForRecording:r]];
-        dispatch_async(dispatch_get_main_queue(),^{if(generation!=self.generation)return;for(NSUInteger i=0;i<rows.count;i++)((AI7Recording*)rows[i]).localState=states[i];self.converting=NO;self.busy=NO;self.phase=@"idle";[self statusText:self.usbSource?@"Ready. All recordings will transfer via USB.":@"Waiting for USB storage."];[self updateControls];[self prepareUSB];});
+    self.store=[[AI7Store alloc]initWithRoot:self.folder device:self.deviceID];
+    // Classification uses the fingerprint cache. SHA-256 for misses keeps running after the buttons are enabled.
+    self.busy=YES;self.converting=NO;self.phase=@"classify";self.activity=NSDate.timeIntervalSinceReferenceDate;[self statusText:@"Checking local recordings…"];[self updateControls];
+    NSArray*rows=[self.recordings copy];AI7Store*store=self.store;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{
+        NSMutableArray*quick=[NSMutableArray new];NSMutableIndexSet*needs=[NSMutableIndexSet new];
+        for(NSUInteger i=0;i<rows.count;i++){
+            if(serial!=self.fileCheckSerial||generation!=self.generation)return;
+            NSString*state=[store quickStateForRecording:rows[i]];
+            if(state)[quick addObject:state];else{[quick addObject:@"checking"];[needs addIndex:i];}
+        }
+        dispatch_async(dispatch_get_main_queue(),^{
+            if(serial!=self.fileCheckSerial||generation!=self.generation)return;
+            for(NSUInteger i=0;i<rows.count&&i<quick.count;i++){AI7Recording*r=rows[i];if([self.recordings containsObject:r])r.localState=quick[i];}
+            self.converting=NO;self.busy=NO;self.phase=@"idle";
+            [self statusText:needs.count?@"Verifying local recordings…":(self.usbSource?@"Ready. All recordings will transfer via USB.":@"Waiting for USB storage.")];
+            [self updateControls];[self prepareUSB];
+            if(!needs.count)return;
+            NSArray*pending=[rows objectsAtIndexes:needs];
+            dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{
+                NSMutableArray*states=[NSMutableArray new];
+                for(AI7Recording*r in pending){
+                    if(serial!=self.fileCheckSerial)return;
+                    [states addObject:[store stateForRecording:r]?:@"conflict"];
+                }
+                dispatch_async(dispatch_get_main_queue(),^{
+                    if(serial!=self.fileCheckSerial||!self.deviceID)return;
+                    for(NSUInteger i=0;i<pending.count&&i<states.count;i++){AI7Recording*r=pending[i];if([self.recordings containsObject:r]&&[r.localState isEqual:@"checking"])r.localState=states[i];}
+                    [self updateControls];
+                    if(generation==self.generation&&!self.busy&&[self.phase isEqual:@"idle"])[self statusText:self.usbSource?@"Ready. All recordings will transfer via USB.":@"Waiting for USB storage."];
+                });
+            });
+        });
     });
 }
 - (void)deviceSelectionChanged {[self updateControls];}
@@ -220,7 +250,7 @@
     if(self.demo){self.connected=YES;[self refresh];return;}
     self.device.delegate=self;[self.central connectPeripheral:self.device options:nil];
 }
-- (void)disconnect {if(self.busy)return;[self.central stopScan];if(self.device)[self.central cancelPeripheralConnection:self.device];self.connected=NO;self.device=nil;self.writer=nil;self.deviceID=nil;self.store=nil;self.usbSource=nil;[self.recordings removeAllObjects];self.subtitle.stringValue=@"Your recordings. On your Mac.";self.summary.stringValue=@"No recorder connected";[self statusText:@"Disconnected. You can now use MindRec again."];[self updateControls];}
+- (void)disconnect {if(self.busy)return;[self.central stopScan];if(self.device)[self.central cancelPeripheralConnection:self.device];self.fileCheckSerial++;self.connected=NO;self.device=nil;self.writer=nil;self.deviceID=nil;self.store=nil;self.usbSource=nil;[self.recordings removeAllObjects];self.subtitle.stringValue=@"Your recordings. On your Mac.";self.summary.stringValue=@"No recorder connected";[self statusText:@"Disconnected. You can now use MindRec again."];[self updateControls];}
 - (void)centralManager:(CBCentralManager *)c didConnectPeripheral:(CBPeripheral *)p {if(p!=self.device)return;self.activity=NSDate.timeIntervalSinceReferenceDate;[p discoverServices:@[[CBUUID UUIDWithString:@"D0D0"]]];}
 - (void)centralManager:(CBCentralManager *)c didFailToConnectPeripheral:(CBPeripheral *)p error:(NSError *)e {if(p==self.device)[self fail:@"Connection failed. Close MindRec and try again."];}
 - (void)centralManager:(CBCentralManager *)c didDisconnectPeripheral:(CBPeripheral *)p error:(NSError *)e {
@@ -284,7 +314,7 @@
     if(self.device){CBPeripheral*p=self.device;self.device=nil;[self.central cancelPeripheralConnection:p];}self.connected=NO;self.writer=nil;
     [self statusText:message];self.summary.stringValue=@"Not connected — scan to reconnect";[self updateControls];
 }
-- (void)stop {if(self.scanning){[self.central stopScan];self.scanning=NO;self.generation++;[self refreshDevicesMenu];[self statusText:@"Scan stopped. Select a found recorder to connect."];[self updateControls];return;}[self fail:@"Stopped. Completed recordings are safe; incomplete transfers are not published as MP3."];}
+- (void)stop {if(self.scanning){[self.central stopScan];self.scanning=NO;self.generation++;[self refreshDevicesMenu];[self statusText:@"Scan stopped. Select a found recorder to connect."];[self updateControls];return;}if([self.phase isEqual:@"verify-local"]){self.busy=NO;self.phase=@"idle";[self statusText:@"Deletion cancelled. No recordings were removed."];[self updateControls];return;}[self fail:@"Stopped. Completed recordings are safe; incomplete transfers are not published as MP3."];}
 - (void)presentError:(NSString *)title detail:(NSString *)detail {NSAlert*a=[NSAlert new];a.messageText=title;a.informativeText=detail;[a beginSheetModalForWindow:self.window completionHandler:nil];}
 - (void)transferSelected {NSMutableArray*a=[NSMutableArray new];for(AI7Recording*r in self.recordings)if(r.selected&&[r.localState isEqual:@"new"])[a addObject:r];[self startTransfer:a];}
 - (void)transferNew {NSMutableArray*a=[NSMutableArray new];for(AI7Recording*r in self.recordings)if([r.localState isEqual:@"new"])[a addObject:r];[self startTransfer:a];}
@@ -298,7 +328,7 @@
     if(!self.queue.count){self.busy=NO;self.phase=@"idle";self.progress.doubleValue=100;[self statusText:[NSString stringWithFormat:@"Finished. %lu recordings saved as MP3.",(unsigned long)self.completed]];[self updateControls];return;}
     if(!self.connected){[self fail:@"Recorder disconnected. Completed exports are safe; reconnect to transfer the rest."];return;}
     self.current=self.queue.firstObject;[self.queue removeObjectAtIndex:0];
-    NSString*state=[self.store stateForRecording:self.current];if(![state isEqual:@"new"]){self.current.localState=state;[self fail:@"A destination already exists. Refresh the list; existing files will not be overwritten."];return;}
+    NSString*state=[self.store quickStateForRecording:self.current];if(![state isEqual:@"new"]){if(state)self.current.localState=state;[self fail:@"A destination already exists. Refresh the list; existing files will not be overwritten."];return;}
     NSError*e=nil;self.staging=[self.store createStaging:&e];if(!self.staging){[self fail:e.localizedDescription];return;}
     NSURL*raw=[self.staging URLByAppendingPathComponent:@"recording.aac"];if(![NSData.data writeToURL:raw options:NSDataWritingWithoutOverwriting error:&e]){[self fail:e.localizedDescription];return;}
     self.audioFile=[NSFileHandle fileHandleForWritingToURL:raw error:&e];if(!self.audioFile){[self fail:e.localizedDescription];return;}
@@ -335,15 +365,13 @@
         dispatch_async(dispatch_get_main_queue(),^{if(generation!=self.generation)return;self.converting=NO;if(!ok){[self fail:error.localizedDescription?:@"Export failed; original audio is preserved."];return;}r.localState=@"local";r.selected=NO;self.completed++;[self updateControls];[self nextDownload];});
     });
 }
-- (void)confirmDelete {
-    if(self.busy||!self.connected)return;NSMutableArray*chosen=[NSMutableArray new];for(AI7Recording*r in self.recordings)if(r.selected)[chosen addObject:r];if(!chosen.count)return;
-    for(AI7Recording*r in chosen){NSUInteger matches=0;for(AI7Recording*x in self.recordings)if([x.identifier isEqual:r.identifier])matches++;if(matches!=1){[self presentError:@"Ambiguous recording identifier" detail:@"This firmware lists more than one recording with the same ID. Deletion is disabled for these entries."];return;}}
-    NSUInteger unbacked=0;NSMutableArray*names=[NSMutableArray new];for(AI7Recording*r in chosen){if(!self.store||![[self.store stateForRecording:r] isEqual:@"local"])unbacked++;[names addObject:[NSString stringWithFormat:@"%@ · %@",r.displayDate,r.category]];}
+- (void)presentDeleteConfirmation:(NSArray *)chosen unbacked:(NSUInteger)unbacked generation:(NSUInteger)generation {
+    NSMutableArray*names=[NSMutableArray new];for(AI7Recording*r in chosen)[names addObject:[NSString stringWithFormat:@"%@ · %@",r.displayDate,r.category]];
     NSAlert*a=[NSAlert new];a.alertStyle=NSAlertStyleCritical;a.messageText=[NSString stringWithFormat:@"Delete %lu recording%@ from the Ai7?",(unsigned long)chosen.count,chosen.count==1?@"":@"s"];
     NSString*list=[[names subarrayWithRange:NSMakeRange(0,MIN(names.count,8))] componentsJoinedByString:@"\n"];
     a.informativeText=[NSString stringWithFormat:@"This permanently removes the selected recordings from the connected Ai7. This cannot be undone. Local files are kept. USB storage is safely ejected before deletion.\n\n%@%@%@",list,names.count>8?@"\n…":@"",unbacked?[NSString stringWithFormat:@"\n\n%lu selected recordings have no verified local backup in this folder.",(unsigned long)unbacked]:@""];
     [a addButtonWithTitle:@"Cancel"];NSButton*confirm=[a addButtonWithTitle:@"Delete permanently"];confirm.hasDestructiveAction=YES;confirm.keyEquivalent=@"";
-    NSUInteger generation=self.generation;[a beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse response){if(response!=NSAlertSecondButtonReturn||!self.connected||self.busy||generation!=self.generation)return;
+    [a beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse response){if(response!=NSAlertSecondButtonReturn||!self.connected||self.busy||generation!=self.generation)return;
         if(self.demo){[self statusText:@"Demo mode: no recordings were deleted."];return;}
         self.queue=[chosen mutableCopy];self.total=chosen.count;self.completed=0;self.busy=YES;self.usbRequested=NO;self.phase=@"ejecting";self.activity=NSDate.timeIntervalSinceReferenceDate;[self updateControls];
         NSURL*root=self.usbSource;
@@ -359,6 +387,27 @@
             });});
         }else [self nextDelete];
     }];
+}
+- (void)confirmDelete {
+    if(self.busy||!self.connected)return;NSMutableArray*chosen=[NSMutableArray new];for(AI7Recording*r in self.recordings)if(r.selected)[chosen addObject:r];if(!chosen.count)return;
+    for(AI7Recording*r in chosen){NSUInteger matches=0;for(AI7Recording*x in self.recordings)if([x.identifier isEqual:r.identifier])matches++;if(matches!=1){[self presentError:@"Ambiguous recording identifier" detail:@"This firmware lists more than one recording with the same ID. Deletion is disabled for these entries."];return;}}
+    NSArray*snapshot=[chosen copy];NSUInteger generation=self.generation;AI7Store*store=self.store;
+    if(!store){[self presentDeleteConfirmation:snapshot unbacked:snapshot.count generation:generation];return;}
+    self.busy=YES;self.phase=@"verify-local";self.activity=NSDate.timeIntervalSinceReferenceDate;[self statusText:@"Checking local backups…"];[self updateControls];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
+        NSMutableArray*states=[NSMutableArray new];
+        for(AI7Recording*r in snapshot){
+            if(generation!=self.generation||![self.phase isEqual:@"verify-local"])return;
+            [states addObject:[store stateForRecording:r]?:@"conflict"];
+        }
+        dispatch_async(dispatch_get_main_queue(),^{
+            if(generation!=self.generation||!self.connected||![self.phase isEqual:@"verify-local"])return;
+            NSUInteger unbacked=0;
+            for(NSUInteger i=0;i<snapshot.count&&i<states.count;i++){NSString*state=states[i];AI7Recording*r=snapshot[i];if([self.recordings containsObject:r])r.localState=state;if(![state isEqual:@"local"])unbacked++;}
+            self.busy=NO;self.phase=@"idle";[self updateControls];
+            [self presentDeleteConfirmation:snapshot unbacked:unbacked generation:generation];
+        });
+    });
 }
 - (void)nextDelete {
     if(!self.queue.count){NSUInteger n=self.completed;self.busy=NO;self.phase=@"idle";self.current=nil;[self checkLocalFiles];[self presentError:@"Deletion verified" detail:[NSString stringWithFormat:@"%lu recordings are no longer listed on the Ai7. Local files were kept.",(unsigned long)n]];return;}
